@@ -46,34 +46,18 @@ export interface ReservationsPerMonth {
 
 
 const SELECT_RESERVATIONS_PER_MONTH = `
-  with bounds as (
-    select
-      date_trunc('month', now() at time zone 'Asia/Kolkata') as current_month,
-      date_trunc('month', now() at time zone 'Asia/Kolkata')
-        - interval '5 months' as window_start
-  ),
-  months as (
-    select generate_series(
-             (select window_start from bounds),
-             (select current_month from bounds),
-             interval '1 month'
-           ) as month_start
-  ),
-  counts as (
-    select
-      date_trunc('month', r.created_at at time zone 'Asia/Kolkata') as month_start,
-      count(*)::int as count
-    from reservations r
-    where (r.created_at at time zone 'Asia/Kolkata')
-          >= (select window_start from bounds)
-    group by 1
-  )
   select
-    to_char(m.month_start, 'YYYY-MM') as month,
-    coalesce(c.count, 0) as count
-  from months m
-  left join counts c on c.month_start = m.month_start
-  order by m.month_start asc
+  to_char(m.month_start, 'YYYY-MM') as month,
+  count(r.id)::int as count
+from generate_series(
+       date_trunc('month', now() at time zone 'Asia/Kolkata') - interval '5 months',
+       date_trunc('month', now() at time zone 'Asia/Kolkata'),
+       interval '1 month'
+     ) as m(month_start)
+left join reservations r
+  on date_trunc('month', r.created_at at time zone 'Asia/Kolkata') = m.month_start
+group by m.month_start
+order by m.month_start;
 `;
 
 /** Counts every reservation in the month it was created, active or released. */
